@@ -28,7 +28,6 @@ class String:
 
     @property
     def length(self):
-        print(type(self.content))
         return len(self.content)
 
     def process_content(self, content):
