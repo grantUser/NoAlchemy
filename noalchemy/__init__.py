@@ -1,11 +1,9 @@
+from .engine import create_engine
+
 class Integer:
     MAX_VALUE = 2147483647
 
-    def __init__(
-        self,
-        max_value: int = MAX_VALUE,
-        min_value: int = None
-    ):
+    def __init__(self, max_value: int = MAX_VALUE, min_value: int = None):
         self._validate_parameters(max_value, min_value)
 
         self.max_value = max_value
@@ -21,19 +19,21 @@ class Integer:
     @property
     def has_content(self):
         return bool(self.content)
-    
+
     def process_content(self, content):
         return str(content)
 
     def check_content(self):
         if not self.has_content:
             raise ValueError("No data available.")
-        
+
         if not isinstance(self.content, int):
             raise ValueError("No data available.")
 
         if self.min_value is not None and self.content < self.min_value:
-            raise ValueError(f"Value must be greater than or equal to {self.min_value}.")
+            raise ValueError(
+                f"Value must be greater than or equal to {self.min_value}."
+            )
 
         if self.content > self.max_value:
             raise ValueError(f"Value must be less than or equal to {self.max_value}.")
@@ -46,24 +46,30 @@ class Integer:
 
     def __add__(self, other):
         if not isinstance(other, int):
-            raise TypeError("You can only concatenate a String object with another string.")
+            raise TypeError(
+                "You can only concatenate a String object with another string."
+            )
 
         return self.content + other
 
     def __radd__(self, other):
         if not isinstance(other, int):
-            raise TypeError("You can only concatenate a String object with another string.")
-        
+            raise TypeError(
+                "You can only concatenate a String object with another string."
+            )
 
         return other + self.content
-    
+
     def __iadd__(self, other):
         if not isinstance(other, int):
-            raise TypeError("You can only concatenate a String object with another string.")
-        
+            raise TypeError(
+                "You can only concatenate a String object with another string."
+            )
+
         self.content += other
-        
+
         return self.content
+
 
 class String:
     MAX_LENGTH = 255
@@ -124,13 +130,17 @@ class String:
 
     def __add__(self, other):
         if not isinstance(other, str):
-            raise TypeError("You can only concatenate a String object with another string.")
+            raise TypeError(
+                "You can only concatenate a String object with another string."
+            )
 
         return self.content + other
 
     def __radd__(self, other):
         if not isinstance(other, str):
-            raise TypeError("You can only concatenate a String object with another string.")
+            raise TypeError(
+                "You can only concatenate a String object with another string."
+            )
 
         return other + self.content
 
