@@ -1,15 +1,31 @@
-from pymongo import MongoClient
-from mongomock import MongoClient as MockMongoClient
+from typing import Any
 
-def create_engine(url, **kwargs):
-    strategy = kwargs.get("strategy", "default")
 
-    if strategy == "mock":
-        return create_mock_engine(url)
-    elif strategy == "default":
-        return MongoClient(url)
-    else:
-        raise Exception("Unknown strategy: %r" % strategy)
+def create_engine(*args, **kwargs):
+    return NoAlchemy(*args, **kwargs)
 
-def create_mock_engine(url):
-    return MockMongoClient(url)
+
+class NoAlchemy:
+    def __init__(self, url: str, mock: bool = False) -> None:
+        self.url = url
+        self.mock = mock
+        self.client = None
+        self._post_init()
+
+    def _post_init(self):
+        from pymongo import MongoClient
+
+        if self.mock:
+            from mongomock import MongoClient
+
+        self.client = MongoClient(self.client)
+
+    def query(self, *args):
+        return self.Query(self, *args)
+
+    class Query:
+        def __init__(self, no_alchemy, *args):
+            self.no_alchemy = no_alchemy
+
+        def filter_by(self, **kwargs):
+            return "filter"

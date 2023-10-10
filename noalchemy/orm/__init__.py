@@ -1,8 +1,22 @@
 from bson import ObjectId
+
 from .. import Key
+
+
+def declarative_base(noalchemy):
+    base = Base
+    base.query = noalchemy.query()
+    return base
+
+
+class Query:
+    def __init__(self, noalchemy) -> None:
+        self.noalchemy = noalchemy
 
 class Base:
     def __init__(self, *args, **kwds):
+        self.query = None
+
         self._validate_required_keys(kwds)
         self._initialize_keys(kwds)
         self._post_init()
