@@ -1,5 +1,6 @@
 from .engine import create_engine
 
+
 class Integer:
     MAX_VALUE = 2147483647
 
@@ -20,8 +21,12 @@ class Integer:
     def has_content(self):
         return bool(self.content)
 
-    def process_content(self, content):
-        return str(content)
+    @property
+    def value(self):
+        return self.content
+
+    def process_content(self):
+        return str(self.content)
 
     def check_content(self):
         if not self.has_content:
@@ -42,7 +47,7 @@ class Integer:
 
     def __str__(self):
         if self.check_content():
-            return self.process_content(self.content)
+            return self.process_content()
 
     def __add__(self, other):
         if not isinstance(other, int):
@@ -103,7 +108,13 @@ class String:
     def length(self):
         return len(self.content)
 
-    def process_content(self, content):
+    @property
+    def value(self):
+        return self.process_content()
+
+    def process_content(self):
+        content = self.content
+
         if self.uppercase:
             content = content.upper()
 
@@ -126,7 +137,7 @@ class String:
 
     def __str__(self):
         if self.check_content():
-            return self.process_content(self.content)
+            return self.process_content()
 
     def __add__(self, other):
         if not isinstance(other, str):
@@ -146,9 +157,14 @@ class String:
 
 
 class Key:
-    def __init__(self, type: object, required: bool = False):
+    def __init__(self, type: object, required: bool = False, index: bool = False):
+        self.__collection_name__ = None
+        self.__key__ = None
+        self.__object__ = None
+
         self.type = type
         self.required = required
+        self.index = index
 
     def __call__(self, *args, **kwargs):
         return self.type(*args, **kwargs)
