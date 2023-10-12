@@ -1,5 +1,7 @@
 import re
-from typing import Any
+
+from ..exc import (MultipleCollectionsFound, MultipleObjectsDetected,
+                   NoResultFoundException)
 
 
 def create_engine(*args, **kwargs):
@@ -96,16 +98,14 @@ class NoAlchemy:
 
             self.collections = list(set(self.collections))
             if len(self.collections) > 1:
-                raise Exception(
-                    "Detection of several collections searched simultaneously"
-                )
+                raise MultipleCollectionsFound()
 
             if self.object:
                 self.objects.append(self.object)
 
             self.objects = list(set(self.objects))
             if len(self.objects) > 1:
-                raise Exception("Detection of several object searched simultaneously")
+                raise MultipleObjectsDetected()
 
             if len(self.collections) != 1 and len(self.objects) != 1:
                 return
@@ -136,3 +136,23 @@ class NoAlchemy:
                     document_list.append(self.object(**document))
 
             return document_list
+
+        def one_or_none(self):
+            if self.collection in self.noalchemy.database.list_collection_names():
+                collection = self.noalchemy.database[self.collection]
+                document = collection.find_one(self.filter, self.projection)
+
+                if document:
+                    return self.object(**document)
+
+            return None
+
+        def one(self):
+            if self.collection in self.noalchemy.database.list_collection_names():
+                collection = self.noalchemy.database[self.collection]
+                document = collection.find_one(self.filter, self.projection)
+
+                if document:
+                    return self.object(**document)
+
+            raise NoResultFoundException()
