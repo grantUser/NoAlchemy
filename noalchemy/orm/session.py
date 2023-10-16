@@ -2,6 +2,7 @@ import threading
 
 from ..exc import *
 from ..types import Key
+from .models import models
 
 
 class Session:
@@ -49,6 +50,12 @@ class Session:
 
                     if hasattr(arg, "__object__"):
                         self.objects.append(arg.__object__)
+                
+                elif isinstance(arg, str):
+                    if arg in models.instances:
+                        model = models.instances.get(arg, None)
+                        self.collections.append(model.__collection_name__)
+                        self.objects.append(model)
 
                 elif isinstance(arg, object):
                     if hasattr(arg, "__collection_name__"):
@@ -76,8 +83,8 @@ class Session:
             self.object = self.objects[0]
 
             projection_len = len(self.projection)
-            for name, type in self.object.__annotations__.items():
-                if type.required or projection_len < 1:
+            for name, instance in self.object.__annotations__.items():
+                if instance.required or projection_len < 1:
                     self.projection[name] = 1
 
             return
