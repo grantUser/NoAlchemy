@@ -3,9 +3,10 @@ from typing import Any, Union
 from bson import ObjectId
 
 from ..types import Integer, Key, String
+from .models import models
+import inspect
 
 types = Union[Integer, String]
-
 
 class declarative_base:
     def __new__(cls, Session=None) -> None:
@@ -21,6 +22,10 @@ class declarative_base:
 
 class Document:
     def __init_subclass__(cls) -> None:
+
+        if not cls.__name__ in models.instances:
+            models.add({cls.__name__: cls})
+
         for key, type in cls.__annotations__.items():
             if isinstance(type, Key):
                 type.__collection_name__ = cls.__collection_name__
@@ -44,6 +49,12 @@ class Document:
         return self.__init__(*args, **kwds)
 
     def __post_init__(self, *args, **kwds):
+        if (
+            self.__collection_name__
+            not in self.session.bind.database.list_collection_names()
+        ):
+            self.session.bind.database.create_collection(self.__collection_name__)
+
         if not hasattr(self, "_id") or not ObjectId.is_valid(self._id):
             self.__dict__["_id"] = ObjectId()
 
@@ -53,8 +64,13 @@ class Document:
                     raise Exception(f"{key} is required.")
 
             if isinstance(instance, Key) and key in kwds:
-                instance.type.content = kwds.get(key, None)
-                self.__dict__[key] = instance.type
+                constructor = instance.type.__init__
+                parameters = list(inspect.signature(constructor).parameters.keys())
+                current_parameter_values = {param: getattr(instance.type, param) for param in parameters}
+                new_instance = type(instance.type)(**current_parameter_values)
+                
+                new_instance.content = kwds.get(key, None)
+                self.__dict__[key] = new_instance
 
         if _id := kwds.get("_id", False):
             if ObjectId.is_valid(_id):
