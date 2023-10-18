@@ -1,9 +1,11 @@
 import re
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 
 class _engine:
-    def __init__(self, url: str, mock: bool = False) -> None:
+    def __init__(self, url: str, pool: bool = True, mock: bool = False) -> None:
         self.url = url
+        self.pool = pool
         self.mock = mock
         self.client = None
         self.database = None
@@ -43,7 +45,7 @@ class _engine:
             infos = match.groupdict()
 
             if name := infos.get("name", False):
-                if name == "mongodb":
+                if name == "mongodb" or name == "mongodb+srv":
                     if infos.get("database", False):
                         return infos
 
@@ -55,4 +57,24 @@ class _engine:
         if self.mock:
             from mongomock import MongoClient
 
+        parsed_url = urlparse(self.url)
+        query_parameters = parse_qs(parsed_url.query)
+        parsed_url = urlparse(self.url)
+        query_parameters = parse_qs(parsed_url.query)
+        query_parameters["appName"] = "NoAlchemy"
+
+        if not self.pool:
+            query_parameters["directConnection"] = "true"
+
+        new_query_string = urlencode(query_parameters, doseq=True)
+        self.url = urlunparse(
+            (
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path,
+                parsed_url.params,
+                new_query_string,
+                parsed_url.fragment,
+            )
+        )
         return MongoClient(self.url)
