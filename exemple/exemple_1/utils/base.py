@@ -1,4 +1,4 @@
-from noalchemy.orm import declarative_base
+from noalchemy.odm import declarative_base
 
 from utils.engine import Session
 
