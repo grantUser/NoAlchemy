@@ -12,10 +12,25 @@ class Transaction:
         self.__bind = bind
         self.__autocommit = autocommit
         self.__inserts = {}
+        self.__inserted = {}
+        self.__to_delete = {}
+        self.__deleted = {}
+
+    def delete_one(self, object):
+        collection = object.__collection_name__
+        if collection not in self.__to_delete:
+            self.__to_delete[collection] = []
+
+        if hasattr(object, "to_dict") and callable(object.to_dict):
+            self.__to_delete[collection].append(object.to_dict())
+
+    def delete_many(self, objects):
+        for object in objects:
+            self.delete_one(object)
 
     def insert_one(self, object):
         collection = object.__collection_name__
-        if not collection in self.__inserts:
+        if collection not in self.__inserts:
             self.__inserts[collection] = []
 
         updated = False
@@ -34,7 +49,58 @@ class Transaction:
             self.insert_one(object)
 
     def commit(self):
-        for collection, objects in self.__inserts.items():
+        # order -> INSERT, UPDATE, DELETE
+        try:
+            for collection, objects in self.__inserts.items():
+                collection = self.__bind.database[collection]
+
+                match len(objects):
+                    case n if n > 1:
+                        collection.insert_many(objects)
+                    case 1:
+                        collection.insert_one(objects[0])
+                    case 0:
+                        pass
+
+                if collection not in self.__inserted:
+                    self.__inserted[collection] = []
+
+                self.__inserted[collection].extend(objects)
+
+            self.__inserts = {}
+            self.__inserted = {}
+
+            # delete part
+
+            for collection, objects in self.__to_delete.items():
+                collection = self.__bind.database[collection]
+
+                for object in objects:
+                    if document_id_to_delete := object.get("_id", False):
+                        collection.delete_one({"_id": document_id_to_delete})
+
+                if collection not in self.__deleted:
+                    self.__deleted[collection] = []
+
+                self.__deleted[collection].extend(objects)
+
+            self.__to_delete = {}
+            self.__deleted = {}
+
+        except:
+            self.rollback()
+
+    def rollback(self):
+        for collection, objects in self.__inserted.items():
+            collection = self.__bind.database[collection]
+
+            for object in objects:
+                collection.delete_one(object)
+
+        self.__inserts = {}
+        self.__inserted = {}
+
+        for collection, objects in self.__deleted.items():
             collection = self.__bind.database[collection]
 
             match len(objects):
@@ -45,6 +111,9 @@ class Transaction:
                 case 0:
                     pass
 
+        self.__to_delete = {}
+        self.__deleted = {}
+
     def __enter__(self):
         return self
 
@@ -54,10 +123,9 @@ class Transaction:
 
 
 class Session:
-    def __init__(self, bind=None, autocommit=False, autoflush=False) -> None:
+    def __init__(self, bind=None, autocommit=False) -> None:
         self.bind = bind
         self.autocommit = autocommit
-        self.autoflush = autoflush
         self._transation = Transaction(bind=self.bind, autocommit=self.autocommit)
 
     def commit(self, *args, **kwds):
@@ -71,7 +139,7 @@ class Session:
                 transaction.rollback(*args, **kwds)
 
     def add(self, object):
-        if not object.__class__.__name__ in models.instances:
+        if object.__class__.__name__ not in models.instances:
             raise Exception(
                 "The following object cannot be translated by NoAlchemy", object
             )
@@ -88,12 +156,30 @@ class Session:
             with self._transation as transaction:
                 transaction.insert_one(object)
 
+    def delete(self, object):
+        if object.__class__.__name__ not in models.instances:
+            raise Exception(
+                "The following object cannot be translated by NoAlchemy", object
+            )
+
+        if not object.__collection_name__:
+            raise Exception(
+                "The following object does not have a __collection_name__", object
+            )
+
+        if not hasattr(object, "_id") or not ObjectId.is_valid(object._id):
+            raise Exception("_id incorrect", object)
+
+        if self._transation:
+            with self._transation as transaction:
+                transaction.delete_one(object)
+
     def add_all(self, objects: list):
         if not isinstance(objects, list):
             raise Exception("An argument of type List is expected", object)
 
         for object in objects:
-            if not object.__class__.__name__ in models.instances:
+            if object.__class__.__name__ not in models.instances:
                 raise Exception(
                     "The following object cannot be translated by NoAlchemy", object
                 )
@@ -109,6 +195,28 @@ class Session:
         if self._transation:
             with self._transation as transaction:
                 transaction.insert_many(objects)
+
+    def delete_all(self, objects: list):
+        if not isinstance(objects, list):
+            raise Exception("An argument of type List is expected", object)
+
+        for object in objects:
+            if object.__class__.__name__ not in models.instances:
+                raise Exception(
+                    "The following object cannot be translated by NoAlchemy", object
+                )
+
+            if not object.__collection_name__:
+                raise Exception(
+                    "The following object does not have a __collection_name__", object
+                )
+
+            if not hasattr(object, "_id") or not ObjectId.is_valid(object._id):
+                raise Exception("_id incorrect", object)
+
+        if self._transation:
+            with self._transation as transaction:
+                transaction.delete_many(objects)
 
     def query(self, *args, **kwds):
         kwds["bind"] = self.bind
@@ -217,14 +325,13 @@ class Session:
 
 
 class _sessionmaker:
-    def __init__(self, bind=None, autocommit=False, autoflush=False):
+    def __init__(self, bind=None, autocommit=False):
         self.bind = bind
         self.autocommit = autocommit
-        self.autoflush = autoflush
 
     def __call__(self):
         if self.bind:
-            return Session(self.bind, self.autocommit, self.autoflush)
+            return Session(self.bind, self.autocommit)
         else:
             raise ValueError("No bind provided for sessionmaker")
 
@@ -249,10 +356,20 @@ class _scoped_session:
             self._local.session = self.session_factory()
         return self._local.session.add(object)
 
+    def delete(self, object):
+        if not hasattr(self._local, "session"):
+            self._local.session = self.session_factory()
+        return self._local.session.delete(object)
+
     def add_all(self, objects):
         if not hasattr(self._local, "session"):
             self._local.session = self.session_factory()
         return self._local.session.add_all(objects)
+
+    def delete_all(self, object):
+        if not hasattr(self._local, "session"):
+            self._local.session = self.session_factory()
+        return self._local.session.delete_all(object)
 
     def commit(self):
         if not hasattr(self._local, "session"):
