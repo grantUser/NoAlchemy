@@ -1,12 +1,13 @@
+import inspect
 from typing import Any, Union
 
 from bson import ObjectId
 
 from ..types import Integer, Key, String
 from .models import models
-import inspect
 
 types = Union[Integer, String]
+
 
 class declarative_base:
     def __new__(cls, Session=None) -> None:
@@ -23,7 +24,7 @@ class declarative_base:
 class Document:
     def __init_subclass__(cls) -> None:
 
-        if not cls.__name__ in models.instances:
+        if cls.__name__ not in models.instances:
             models.add({cls.__name__: cls})
 
         for key, type in cls.__annotations__.items():
@@ -66,9 +67,11 @@ class Document:
             if isinstance(instance, Key) and key in kwds:
                 constructor = instance.type.__init__
                 parameters = list(inspect.signature(constructor).parameters.keys())
-                current_parameter_values = {param: getattr(instance.type, param) for param in parameters}
+                current_parameter_values = {
+                    param: getattr(instance.type, param) for param in parameters
+                }
                 new_instance = type(instance.type)(**current_parameter_values)
-                
+
                 new_instance.content = kwds.get(key, None)
                 self.__dict__[key] = new_instance
 
