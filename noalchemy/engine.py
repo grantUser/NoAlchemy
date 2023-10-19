@@ -1,6 +1,6 @@
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
-
+from pymongo import InsertOne, UpdateOne, DeleteOne
 
 class _engine:
     def __init__(self, url: str, pool: bool = True, mock: bool = False) -> None:

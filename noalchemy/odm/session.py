@@ -59,10 +59,21 @@ class Transaction:
         collection = object.__collection_name__
         bulk_ops = self._get_bulk_operations(collection)
         document = object.to_dict()
-        update = {
-            "$set": {key: value for key, value in object.items() if key in object.__originals__.keys()}
-        }
-        bulk_ops.append(UpdateOne({"_id": document["_id"]}, update))
+        
+        update_existing = None
+        for op in bulk_ops:
+            if op.__class__ == UpdateOne and op._filter.get("_id") == document.get("_id"):
+                update_existing = op
+                break
+        
+        if update_existing:
+            update = update_existing._doc
+            update["$set"].update({key: value for key, value in object.items() if key in object.__originals__.keys()})
+        else:
+            update = {
+                "$set": {key: value for key, value in object.items() if key in object.__originals__.keys()}
+            }
+            bulk_ops.append(UpdateOne({"_id": document["_id"]}, update))
 
     def commit(self):
         for collection_name, bulk_ops in self.bulk_operations.items():
@@ -147,7 +158,7 @@ class Session:
             with self._transaction as transaction:
                 transaction.delete_one(object)
 
-    def update(self, object):
+    def _update(self, object):
         if object.__class__.__name__ not in models.instances:
             raise Exception(
                 "The following object cannot be translated by NoAlchemy", object
@@ -211,6 +222,7 @@ class Session:
 
     def query(self, *args, **kwds):
         kwds["bind"] = self.bind
+        kwds["Session"] = self
         return self.Query(*args, **kwds)
     
     def __enter__(self):
@@ -223,6 +235,7 @@ class Session:
     class Query:
         def __init__(self, *args, **kwds) -> None:
             self.bind = None
+            self.Session = None
             self.projection = {}
             self.filter = {}
             self.collections = []
@@ -236,6 +249,8 @@ class Session:
                 self.collection = collection_kwd
             if bind_kwd := kwds.get("bind", False):
                 self.bind = bind_kwd
+            if Session_kwd := kwds.get("Session", False):
+                self.Session = Session_kwd
             for arg in args:
                 if isinstance(arg, Key):
                     if hasattr(arg, "__collection_name__"):
@@ -284,7 +299,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 documents = collection.find(self.filter, self.projection)
                 for document in documents:
-                    document_list.append(self.object(**document, __from__=1))
+                    document_list.append(self.object(**document, __from__=1, Session=self.Session))
                 return document_list
 
         def one_or_none(self):
@@ -292,7 +307,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 document = collection.find_one(self.filter, self.projection)
                 if document:
-                    return self.object(**document, __from__=1)
+                    return self.object(**document, __from__=1, Session=self.Session)
             return None
 
         def one(self):
@@ -300,7 +315,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 document = collection.find_one(self.filter, self.projection)
                 if document:
-                    return self.object(**document, __from__=1)
+                    return self.object(**document, __from__=1, Session=self.Session)
             raise NoResultFoundException()
 
         def first(self):
@@ -310,7 +325,7 @@ class Session:
                     self.filter, self.projection, sort=[("_id", 1)]
                 )
                 if document:
-                    return self.object(**document, __from__=1)
+                    return self.object(**document, __from__=1, Session=self.Session)
 
         def last(self):
             if self.collection in self.bind.database.list_collection_names():
@@ -319,7 +334,7 @@ class Session:
                     self.filter, self.projection, sort=[("_id", -1)]
                 )
                 if document:
-                    return self.object(**document, __from__=1)
+                    return self.object(**document, __from__=1, Session=self.Session)
 
 
 class _sessionmaker:

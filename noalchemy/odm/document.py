@@ -19,7 +19,7 @@ class declarative_base:
         return document
 
 
-whitelist_key = ["__eta__", "__from__", "__originals__"]
+whitelist_key = ["__eta__", "__from__", "__originals__", "Session"]
 
 
 class Document:
@@ -44,7 +44,7 @@ class Document:
 
     def __init__(self, *args, **kwds) -> None:
         self._id = None
-        self.Session = None
+        self.Session = kwds.get("Session", None)
         self.__eta__ = 0
         self.__from__ = kwds.get("__from__", 0)
         self.__originals__ = {}
@@ -55,13 +55,6 @@ class Document:
         return self.__init__(*args, **kwds)
 
     def __post_init__(self, *args, **kwds):
-        with self.Session as session:
-            if (
-                self.__collection_name__
-                not in session.bind.database.list_collection_names()
-            ):
-                session.bind.database.create_collection(self.__collection_name__)
-
         if not hasattr(self, "_id") or not ObjectId.is_valid(self._id):
             self.__dict__["_id"] = ObjectId()
 
@@ -103,6 +96,7 @@ class Document:
 
                 instance.type.content = value
                 self.__dict__[key] = instance.type
+                self.Session._update(self)
 
             elif key in whitelist_key:
                 self.__dict__[key] = value

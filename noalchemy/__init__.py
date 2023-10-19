@@ -1,9 +1,7 @@
 from typing import Any
 
-from .engine import _engine
+from .engine import _engine, InsertOne, UpdateOne, DeleteOne
 from .types import Integer, Key, String
-
-from pymongo import InsertOne, UpdateOne, DeleteOne
 
 
 class create_engine:
