@@ -3,22 +3,23 @@ from typing import Any, Union
 
 from bson import ObjectId
 
-from ..types import Integer, Key, String
+from ..types import Key
 from .models import models
-
-types = Union[Integer, String]
 
 
 class declarative_base:
     def __new__(cls, Session=None) -> None:
         document = Document
-        document.session = Session()
+        document.Session = Session
         return document
 
     def __call__(cls, Session=None) -> None:
         document = Document
-        document.session = Session()
+        document.Session = Session
         return document
+
+
+whitelist_key = ["__eta__", "__from__", "__originals__"]
 
 
 class Document:
@@ -34,15 +35,19 @@ class Document:
                 type.__object__ = cls
                 setattr(cls, key, type)
 
-        if (
-            cls.__collection_name__
-            not in cls.session.bind.database.list_collection_names()
-        ):
-            cls.session.bind.database.create_collection(cls.__collection_name__)
+        with cls.Session as session:
+            if (
+                cls.__collection_name__
+                not in session.bind.database.list_collection_names()
+            ):
+                session.bind.database.create_collection(cls.__collection_name__)
 
     def __init__(self, *args, **kwds) -> None:
         self._id = None
-        self.session = None
+        self.Session = None
+        self.__eta__ = 0
+        self.__from__ = kwds.get("__from__", 0)
+        self.__originals__ = {}
 
         self.__post_init__(*args, **kwds)
 
@@ -50,11 +55,12 @@ class Document:
         return self.__init__(*args, **kwds)
 
     def __post_init__(self, *args, **kwds):
-        if (
-            self.__collection_name__
-            not in self.session.bind.database.list_collection_names()
-        ):
-            self.session.bind.database.create_collection(self.__collection_name__)
+        with self.Session as session:
+            if (
+                self.__collection_name__
+                not in session.bind.database.list_collection_names()
+            ):
+                session.bind.database.create_collection(self.__collection_name__)
 
         if not hasattr(self, "_id") or not ObjectId.is_valid(self._id):
             self.__dict__["_id"] = ObjectId()
@@ -79,20 +85,56 @@ class Document:
             if ObjectId.is_valid(_id):
                 self.__dict__["_id"] = _id
 
+        self.__eta__ = 1
+
     def __setattr__(self, key, value):
+        if hasattr(self, "__eta__") and self.__eta__ == 1:
+            self.__dict__["__eta__"] = 2
+
         instances = self.__class__.__annotations__
-        if instance := instances.get(key, False):
+        if instance := instances.get(key, False) or key in whitelist_key:
             if isinstance(instance, Key):
+                if self.__eta__ == 2 and (
+                    hasattr(self, "__from__") and self.__from__ == 1
+                ):
+                    if key not in self.__originals__:
+                        original = self.__dict__.get(key, None)
+                        self.__originals__[key] = original.content
+
                 instance.type.content = value
                 self.__dict__[key] = instance.type
-            else:
+
+            elif key in whitelist_key:
                 self.__dict__[key] = value
 
     def to_dict(self):
-        readable_dict = self.__dict__
+        readable_dict = {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in whitelist_key
+        }
 
         for _dict_key, _dict_class in readable_dict.items():
-            if isinstance(_dict_class, types):
+            if (
+                hasattr(_dict_class, "__noalchemy_type__")
+                and _dict_class.__noalchemy_type__
+            ):
                 readable_dict[_dict_key] = _dict_class.value
 
         return readable_dict
+
+    def items(self):
+        readable_dict = {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in whitelist_key
+        }
+
+        for _dict_key, _dict_class in readable_dict.items():
+            if (
+                hasattr(_dict_class, "__noalchemy_type__")
+                and _dict_class.__noalchemy_type__
+            ):
+                readable_dict[_dict_key] = _dict_class.value
+
+        return readable_dict.items()

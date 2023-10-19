@@ -7,6 +7,8 @@ class String:
         uppercase: bool = False,
         strip: bool = False,
     ):
+        self.__noalchemy_type__ = True
+
         self._validate_parameters(max_length, uppercase, strip)
 
         self.max_length = max_length

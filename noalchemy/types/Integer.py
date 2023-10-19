@@ -2,6 +2,8 @@ class Integer:
     MAX_VALUE = 2147483647
 
     def __init__(self, max_value: int = MAX_VALUE, min_value: int = None):
+        self.__noalchemy_type__ = True
+
         self._validate_parameters(max_value, min_value)
 
         self.max_value = max_value
@@ -49,7 +51,7 @@ class Integer:
     def __add__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a String object with another string."
+                "You can only concatenate a Integer object with another integer."
             )
 
         return self.content + other
@@ -57,7 +59,7 @@ class Integer:
     def __radd__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a String object with another string."
+                "You can only concatenate a Integer object with another integer."
             )
 
         return other + self.content
@@ -65,7 +67,7 @@ class Integer:
     def __iadd__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a String object with another string."
+                "You can only concatenate a Integer object with another integer."
             )
 
         self.content += other

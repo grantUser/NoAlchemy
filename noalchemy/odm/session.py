@@ -11,12 +11,20 @@ class Transaction:
     def __init__(self, bind=None, autocommit=False) -> None:
         self.__bind = bind
         self.__autocommit = autocommit
-        self.__inserts = {}
+        self.__to_insert = {}
         self.__inserted = {}
+        self.__to_update = {}
+        self.__updated = {}
         self.__to_delete = {}
         self.__deleted = {}
 
     def delete_one(self, object):
+        if not hasattr(object, "__from__"):
+            raise Exception()
+
+        if object.__from__ != 1:
+            raise Exception()
+
         collection = object.__collection_name__
         if collection not in self.__to_delete:
             self.__to_delete[collection] = []
@@ -29,29 +37,55 @@ class Transaction:
             self.delete_one(object)
 
     def insert_one(self, object):
+        if hasattr(object, "__from__") and object.__from__ == 1:
+            raise Exception()
+
         collection = object.__collection_name__
-        if collection not in self.__inserts:
-            self.__inserts[collection] = []
+        if collection not in self.__to_insert:
+            self.__to_insert[collection] = []
 
-        updated = False
-        for index, item in enumerate(self.__inserts[collection]):
+        for index, item in enumerate(self.__to_insert[collection]):
             if item["_id"] == object._id:
-                self.__inserts[collection][index] = object.to_dict()
-                updated = True
-                break
+                self.__to_insert[collection][index] = object.to_dict()
+                return
 
-        if not updated:
-            if hasattr(object, "to_dict") and callable(object.to_dict):
-                self.__inserts[collection].append(object.to_dict())
+        if hasattr(object, "to_dict") and callable(object.to_dict):
+            self.__to_insert[collection].append(object.to_dict())
 
     def insert_many(self, objects):
         for object in objects:
             self.insert_one(object)
 
+    def update_one(self, object):
+        if not hasattr(object, "__from__"):
+            raise Exception()
+
+        if object.__from__ != 1:
+            raise Exception()
+
+        if object.__eta__ != 2:
+            return
+
+        collection = object.__collection_name__
+        if collection not in self.__to_update:
+            self.__to_update[collection] = []
+
+        if hasattr(object, "items") and callable(object.items):
+            self.__to_update[collection].append(
+                {
+                    "object": object.to_dict(),
+                    "$set": {
+                        key: value
+                        for key, value in object.items()
+                        if key in object.__originals__.keys()
+                    },
+                }
+            )
+
     def commit(self):
         # order -> INSERT, UPDATE, DELETE
         try:
-            for collection, objects in self.__inserts.items():
+            for collection, objects in self.__to_insert.items():
                 collection = self.__bind.database[collection]
 
                 match len(objects):
@@ -67,8 +101,27 @@ class Transaction:
 
                 self.__inserted[collection].extend(objects)
 
-            self.__inserts = {}
+            self.__to_insert = {}
             self.__inserted = {}
+
+            # update part
+            for collection, objects in self.__to_update.items():
+                collection = self.__bind.database[collection]
+
+                for object in objects:
+                    set = object.get("$set", {})
+                    object = object.get("object", None)
+
+                    if document_id := object.get("_id", None):
+                        collection.update_one({"_id": document_id}, {"$set": set})
+
+                if collection not in self.__updated:
+                    self.__updated[collection] = []
+
+                self.__updated[collection].extend(objects)
+
+            self.__to_update = {}
+            self.__updated = {}
 
             # delete part
 
@@ -87,8 +140,9 @@ class Transaction:
             self.__to_delete = {}
             self.__deleted = {}
 
-        except:
+        except Exception as e:
             self.rollback()
+            raise Exception(e)
 
     def rollback(self):
         for collection, objects in self.__inserted.items():
@@ -97,8 +151,22 @@ class Transaction:
             for object in objects:
                 collection.delete_one(object)
 
-        self.__inserts = {}
+        self.__to_insert = {}
         self.__inserted = {}
+
+        for collection, objects in self.__updated.items():
+            collection = self.__bind.database[collection]
+
+            for object in objects:
+                set = object.get("$set", {})
+                object = object.get("object", None)
+
+                if document_id := object.get("_id", None):
+                    setset = {
+                        key: value for key, value in object.items() if key in set.keys()
+                    }
+
+                    collection.update_one({"_id": document_id}, {"$set": setset})
 
         for collection, objects in self.__deleted.items():
             collection = self.__bind.database[collection]
@@ -173,6 +241,24 @@ class Session:
         if self._transation:
             with self._transation as transaction:
                 transaction.delete_one(object)
+
+    def update(self, object):
+        if object.__class__.__name__ not in models.instances:
+            raise Exception(
+                "The following object cannot be translated by NoAlchemy", object
+            )
+
+        if not object.__collection_name__:
+            raise Exception(
+                "The following object does not have a __collection_name__", object
+            )
+
+        if not hasattr(object, "_id") or not ObjectId.is_valid(object._id):
+            raise Exception("_id incorrect", object)
+
+        if self._transation:
+            with self._transation as transaction:
+                transaction.update_one(object)
 
     def add_all(self, objects: list):
         if not isinstance(objects, list):
@@ -286,7 +372,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 documents = collection.find(self.filter, self.projection)
                 for document in documents:
-                    document_list.append(self.object(**document))
+                    document_list.append(self.object(**document, __from__=1))
                 return document_list
 
         def one_or_none(self):
@@ -294,7 +380,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 document = collection.find_one(self.filter, self.projection)
                 if document:
-                    return self.object(**document)
+                    return self.object(**document, __from__=1)
             return None
 
         def one(self):
@@ -302,7 +388,7 @@ class Session:
                 collection = self.bind.database[self.collection]
                 document = collection.find_one(self.filter, self.projection)
                 if document:
-                    return self.object(**document)
+                    return self.object(**document, __from__=1)
             raise NoResultFoundException()
 
         def first(self):
@@ -312,7 +398,7 @@ class Session:
                     self.filter, self.projection, sort=[("_id", 1)]
                 )
                 if document:
-                    return self.object(**document)
+                    return self.object(**document, __from__=1)
 
         def last(self):
             if self.collection in self.bind.database.list_collection_names():
@@ -321,7 +407,7 @@ class Session:
                     self.filter, self.projection, sort=[("_id", -1)]
                 )
                 if document:
-                    return self.object(**document)
+                    return self.object(**document, __from__=1)
 
 
 class _sessionmaker:
@@ -366,10 +452,15 @@ class _scoped_session:
             self._local.session = self.session_factory()
         return self._local.session.add_all(objects)
 
-    def delete_all(self, object):
+    def delete_all(self, objects):
         if not hasattr(self._local, "session"):
             self._local.session = self.session_factory()
-        return self._local.session.delete_all(object)
+        return self._local.session.delete_all(objects)
+
+    def update(self, object):
+        if not hasattr(self._local, "session"):
+            self._local.session = self.session_factory()
+        return self._local.session.update(object)
 
     def commit(self):
         if not hasattr(self._local, "session"):
