@@ -238,6 +238,8 @@ class Session:
             self.Session = None
             self.projection = {}
             self.filter = {}
+            self.limit_value = 1000
+            self.offset_value = 0
             self.collections = []
             self.collection = None
             self.objects = []
@@ -293,11 +295,19 @@ class Session:
 
             return self
 
+        def offset(self, skip_value):
+            self.offset_value = skip_value
+            return self
+
+        def limit(self, limit_value):
+            self.limit_value = limit_value
+            return self
+
         def all(self):
             document_list = []
             if self.collection in self.bind.database.list_collection_names():
                 collection = self.bind.database[self.collection]
-                documents = collection.find(self.filter, self.projection)
+                documents = collection.find(self.filter, self.projection).skip(self.offset_value).limit(self.limit_value)
                 for document in documents:
                     document_list.append(self.object(**document, __from__=1, Session=self.Session))
                 return document_list
