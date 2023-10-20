@@ -2,8 +2,7 @@ from typing import Any
 
 from .engine import _engine, InsertOne, UpdateOne, DeleteOne
 from .types import Integer, Key, String
-
-__version__ = "0.1.1"
+from .version import __version__, version
 
 class create_engine:
     def __new__(self, *args: Any, **kwds: Any) -> None:
