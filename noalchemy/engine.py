@@ -1,25 +1,36 @@
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
-from pymongo import InsertOne, UpdateOne, DeleteOne
+from pymongo import DeleteOne, InsertOne, UpdateOne
 
 class _engine:
-    def __init__(self, url: str, pool: bool = True, mock: bool = False) -> None:
-        self.url = url
-        self.pool = pool
-        self.mock = mock
+    def __init__(self, *args, **kwds) -> None:
+        self.__url = kwds.get("url", None)
+        self.__username = kwds.get("username", None)
+        self.__password = kwds.get("password", None)
+        self.__host = kwds.get("host", None)
+        self.__port = kwds.get("port", None)
+        self.pool = kwds.get("pool", None)
+        self.mock = kwds.get("mock", None)
         self.client = None
-        self.database = None
+        self.database = kwds.get("database", None)
 
-        self.__post_init__()
+        self.__post_init__(*args, **kwds)
 
-    def __post_init__(self) -> None:
-        if infos := self._parse_url():
+    def __post_init__(self, *args, **kwds) -> None:
+        if args:
+            self.__url = args[0]
+        elif self.__username and self.__password and self.__host and self.__port and self.database:
+            self.__url = f"mongodb://{self.__username}:{self.__password}@{self.__host}:{self.__port}/{self.database}"
+        elif self.__host and self.__port and self.database:
+            self.__url = f"mongodb://{self.__host}:{self.__port}/{self.database}"
+
+        infos = self._parse_url()
+        if infos:
             self.client = self._MongoClient()
-
-            if database := infos.get("database", False):
+            if database := infos.get("database"):
                 self.database = self.client[database]
 
-    def _parse_url(self) -> None:
+    def _parse_url(self) -> dict:
         pattern = re.compile(
             r"""
                 (?P<name>[\w\+]+)://
@@ -39,16 +50,11 @@ class _engine:
             """,
             re.X,
         )
-
-        match = pattern.match(self.url)
+        match = pattern.match(self.__url)
         if match:
             infos = match.groupdict()
-
-            if name := infos.get("name", False):
-                if name == "mongodb" or name == "mongodb+srv":
-                    if infos.get("database", False):
-                        return infos
-
+            if infos.get("name") in ["mongodb", "mongodb+srv"] and infos.get("database"):
+                return infos
             raise Exception("Invalid URL detected")
 
     def _MongoClient(self):
@@ -57,9 +63,7 @@ class _engine:
         if self.mock:
             from mongomock import MongoClient
 
-        parsed_url = urlparse(self.url)
-        query_parameters = parse_qs(parsed_url.query)
-        parsed_url = urlparse(self.url)
+        parsed_url = urlparse(self.__url)
         query_parameters = parse_qs(parsed_url.query)
         query_parameters["appName"] = "NoAlchemy"
 
@@ -67,7 +71,7 @@ class _engine:
             query_parameters["directConnection"] = "true"
 
         new_query_string = urlencode(query_parameters, doseq=True)
-        self.url = urlunparse(
+        return MongoClient(urlunparse(
             (
                 parsed_url.scheme,
                 parsed_url.netloc,
@@ -76,5 +80,4 @@ class _engine:
                 new_query_string,
                 parsed_url.fragment,
             )
-        )
-        return MongoClient(self.url)
+        ))
