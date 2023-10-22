@@ -111,6 +111,7 @@ class Session:
         self.bind = bind
         self.autocommit = autocommit
         self._transaction = Transaction(bind=self.bind)
+        self.list_collection_names = self.bind.database.list_collection_names()
 
     def commit(self, *args, **kwds):
         if self._transaction:
@@ -234,25 +235,19 @@ class Session:
 
     class Query:
         def __init__(self, *args, **kwds) -> None:
-            self.bind = None
-            self.Session = None
+            self.bind = kwds.get("bind", None)
+            self.Session = kwds.get("Session", None)
             self.projection = {}
             self.filter = {}
             self.limit_value = 1000
             self.offset_value = 0
             self.collections = []
-            self.collection = None
+            self.collection = kwds.get("collection", None)
             self.objects = []
             self.object = None
             self.__post_init__(*args, **kwds)
 
         def __post_init__(self, *args, **kwds):
-            if collection_kwd := kwds.get("collection", False):
-                self.collection = collection_kwd
-            if bind_kwd := kwds.get("bind", False):
-                self.bind = bind_kwd
-            if Session_kwd := kwds.get("Session", False):
-                self.Session = Session_kwd
             for arg in args:
                 if isinstance(arg, Key):
                     if hasattr(arg, "__collection_name__"):
@@ -291,7 +286,7 @@ class Session:
 
         def collection_exists_decorator(function):
             def wrapper(self, *args, **kwds):
-                if self.collection in self.bind.database.list_collection_names():
+                if self.collection in self.Session.list_collection_names:
                     collection = self.bind.database[self.collection]
                     return function(self, collection, *args, **kwds)
                 else:
