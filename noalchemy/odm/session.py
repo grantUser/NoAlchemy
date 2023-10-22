@@ -289,6 +289,15 @@ class Session:
                 if instance.required or projection_len < 1:
                     self.projection[name] = 1
 
+        def collection_exists_decorator(function):
+            def wrapper(self, *args, **kwds):
+                if self.collection in self.bind.database.list_collection_names():
+                    collection = self.bind.database[self.collection]
+                    return function(self, collection, *args, **kwds)
+                else:
+                    raise Exception("Collection not found in the targeted database")
+            return wrapper
+
         def filter_by(self, **kwargs):
             for key, value in kwargs.items():
                 self.filter[key] = value
@@ -303,48 +312,50 @@ class Session:
             self.limit_value = limit_value
             return self
 
-        def all(self):
+        @collection_exists_decorator
+        def all(self, collection):
             document_list = []
-            if self.collection in self.bind.database.list_collection_names():
-                collection = self.bind.database[self.collection]
-                documents = collection.find(self.filter, self.projection).skip(self.offset_value).limit(self.limit_value)
-                for document in documents:
-                    document_list.append(self.object(**document, __from__=1, Session=self.Session))
-                return document_list
+            documents = collection.find(self.filter, self.projection).skip(self.offset_value).limit(self.limit_value)
+            for document in documents:
+                document_list.append(self.object(**document, __from__=1, Session=self.Session))
 
-        def one_or_none(self):
-            if self.collection in self.bind.database.list_collection_names():
-                collection = self.bind.database[self.collection]
-                document = collection.find_one(self.filter, self.projection)
-                if document:
-                    return self.object(**document, __from__=1, Session=self.Session)
+            return document_list
+
+        @collection_exists_decorator
+        def one_or_none(self, collection):
+            document = collection.find_one(self.filter, self.projection)
+            if document:
+                return self.object(**document, __from__=1, Session=self.Session)
             return None
 
-        def one(self):
-            if self.collection in self.bind.database.list_collection_names():
-                collection = self.bind.database[self.collection]
-                document = collection.find_one(self.filter, self.projection)
-                if document:
-                    return self.object(**document, __from__=1, Session=self.Session)
+        @collection_exists_decorator
+        def one(self, collection):
+            document = collection.find_one(self.filter, self.projection)
+            if document:
+                return self.object(**document, __from__=1, Session=self.Session)
             raise NoResultFoundException()
 
-        def first(self):
-            if self.collection in self.bind.database.list_collection_names():
-                collection = self.bind.database[self.collection]
-                document = collection.find_one(
-                    self.filter, self.projection, sort=[("_id", 1)]
-                )
-                if document:
-                    return self.object(**document, __from__=1, Session=self.Session)
+        @collection_exists_decorator
+        def first(self, collection):
+            document = collection.find_one(
+                self.filter, self.projection, sort=[("_id", 1)]
+            )
+            if document:
+                return self.object(**document, __from__=1, Session=self.Session)
+            raise NoResultFoundException()
 
-        def last(self):
-            if self.collection in self.bind.database.list_collection_names():
-                collection = self.bind.database[self.collection]
-                document = collection.find_one(
-                    self.filter, self.projection, sort=[("_id", -1)]
-                )
-                if document:
-                    return self.object(**document, __from__=1, Session=self.Session)
+        @collection_exists_decorator
+        def last(self, collection):
+            document = collection.find_one(
+                self.filter, self.projection, sort=[("_id", -1)]
+            )
+            if document:
+                return self.object(**document, __from__=1, Session=self.Session)
+            raise NoResultFoundException()
+        
+        @collection_exists_decorator
+        def count(self, collection, **kwds):
+            return collection.count_documents(self.filter, **kwds)
 
 
 class _sessionmaker:
