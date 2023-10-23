@@ -43,6 +43,7 @@ class Transaction:
         collection = object.__collection_name__
         bulk_ops = self._get_bulk_operations(collection)
         document = object.to_dict()
+
         bulk_ops.append(InsertOne(document))
 
     def insert_many(self, objects):
@@ -90,10 +91,10 @@ class Transaction:
             for operation in reversed(bulk_ops):
                 if operation.__class__ == DeleteOne:
                     collection = self.__bind.database[collection_name]
-                    collection.insert_one(operation.filter)
+                    collection.insert_one(operation._filter)
                 elif operation.__class__ == InsertOne:
                     collection = self.__bind.database[collection_name]
-                    collection.delete_one(operation.document)
+                    collection.delete_one(operation._doc)
                 elif operation.__class__ == UpdateOne:
                     collection = self.__bind.database[collection_name]
                     collection.update_one(operation.filter, {"$set": {key: None for key in operation.update["$set"]}})
