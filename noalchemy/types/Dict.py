@@ -3,6 +3,10 @@ class Dict:
         self.__noalchemy_type__ = True
         self.content = {}
 
+    @property
+    def value(self):
+        return self.content
+
     def __len__(self):
         return len(self.content)
 
