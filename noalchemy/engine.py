@@ -1,6 +1,10 @@
+import contextlib
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 from pymongo import DeleteOne, InsertOne, UpdateOne
+from pymongo import timeout as pymongo_timeout
+
 
 class _engine:
     def __init__(self, *args, **kwds) -> None:
@@ -19,7 +23,13 @@ class _engine:
     def __post_init__(self, *args, **kwds) -> None:
         if args:
             self.__url = args[0]
-        elif self.__username and self.__password and self.__host and self.__port and self.database:
+        elif (
+            self.__username
+            and self.__password
+            and self.__host
+            and self.__port
+            and self.database
+        ):
             self.__url = f"mongodb://{self.__username}:{self.__password}@{self.__host}:{self.__port}/{self.database}"
         elif self.__host and self.__port and self.database:
             self.__url = f"mongodb://{self.__host}:{self.__port}/{self.database}"
@@ -53,7 +63,9 @@ class _engine:
         match = pattern.match(self.__url)
         if match:
             infos = match.groupdict()
-            if infos.get("name") in ["mongodb", "mongodb+srv"] and infos.get("database"):
+            if infos.get("name") in ["mongodb", "mongodb+srv"] and infos.get(
+                "database"
+            ):
                 return infos
             raise Exception("Invalid URL detected")
 
@@ -71,13 +83,23 @@ class _engine:
             query_parameters["directConnection"] = "true"
 
         new_query_string = urlencode(query_parameters, doseq=True)
-        return MongoClient(urlunparse(
-            (
-                parsed_url.scheme,
-                parsed_url.netloc,
-                parsed_url.path,
-                parsed_url.params,
-                new_query_string,
-                parsed_url.fragment,
+        return MongoClient(
+            urlunparse(
+                (
+                    parsed_url.scheme,
+                    parsed_url.netloc,
+                    parsed_url.path,
+                    parsed_url.params,
+                    new_query_string,
+                    parsed_url.fragment,
+                )
             )
-        ))
+        )
+
+    def isConnected(self, timeout: int = 2):
+        with contextlib.suppress(Exception):
+            with pymongo_timeout(timeout):
+                if self.client.admin.command("ping")["ok"] == 1:
+                    return True
+
+        return False
