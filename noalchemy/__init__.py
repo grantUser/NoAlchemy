@@ -1,7 +1,7 @@
 from typing import Any
 
 from .engine import _engine, InsertOne, UpdateOne, DeleteOne
-from .types import Integer, Key, String
+from .types import Integer, Key, String, Dict, List
 from .version import __version__, version
 
 class create_engine:
