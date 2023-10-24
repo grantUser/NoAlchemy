@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: ["3.9", "3.10", "3.11", "3.12"]
+          python-version: 3.8
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
@@ -53,6 +53,6 @@ jobs:
         run: |
           echo "Creating a new release..."
           version=${{ env.VERSION }}
-          curl -X POST "https://api.github.com/repos/grantUser/NoAlchemy/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
+          curl -X POST "https://api.github.com/repos/USER/REPO/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
