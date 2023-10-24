@@ -15,15 +15,10 @@ jobs:
         with:
           ref: main
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: 16
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: ["3.9", "3.10", "3.11", "3.12"]
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
@@ -45,20 +40,19 @@ jobs:
       - name: Check Test Status
         if: steps.test.outcome == 'success'
         run: echo "Tests have passed."
-        
+
       - name: Manual Release Confirmation
         if: success()
-        run: |
-          echo "Release confirmation required. Click 'Approve' to create a new release."
-          echo "release-confirmation=true" >> $GITHUB_ENV
+        uses: trstringer/manual-approval@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
         id: confirm-release
-        continue-on-error: true
 
       - name: Create Release
-        if: env.release-confirmation == 'true'
+        if: steps.confirm-release.outputs.approved == 'true'
         run: |
           echo "Creating a new release..."
           version=${{ env.VERSION }}
-          curl -X POST "https://api.github.com/repos/USER/REPO/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
+          curl -X POST "https://api.github.com/repos/grantUser/NoAlchemy/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
