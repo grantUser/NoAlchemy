@@ -90,25 +90,31 @@ class Document:
         if hasattr(self, "__eta__") and self.__eta__ == 1:
             self.__dict__["__eta__"] = 2
 
-        instances = self.__class__.__annotations__
-        if instance := instances.get(key, False):
+        if (
+            hasattr(self, "__eta__")
+            and self.__eta__ == 2
+            and hasattr(self, "__from__")
+            and self.__from__ == 1
+        ):
+            if key not in self.__originals__:
+                original = self.__dict__.get(key, None)
+                self.__originals__[key] = original.content
 
-            if isinstance(instance, Key):
-                if self.__eta__ == 2 and (
-                    hasattr(self, "__from__") and self.__from__ == 1
-                ):
-                    if key not in self.__originals__:
-                        original = self.__dict__.get(key, None)
-                        self.__originals__[key] = original.content
-                        self.Session._update(self)
-
-                instance.type.content = value
-                self.__dict__[key] = instance.type
-            else:
-                self.__dict__[key] = value
-
+        instances = self.__class__.__annotations__.get(key, None)
+        if isinstance(instances, Key):
+            instance = instances.type
+            instance.content = value
+            self.__dict__[key] = instance
         elif key in whitelist_key:
             self.__dict__[key] = value
+
+        if (
+            hasattr(self, "__eta__")
+            and self.__eta__ == 2
+            and hasattr(self, "__from__")
+            and self.__from__ == 1
+        ):
+            self.Session._update(self)
 
     def to_dict(self, exclude: list = None):
         if not exclude:
