@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      issues: write
+
     steps:
       - name: Check Out Code
         uses: actions/checkout@v2
