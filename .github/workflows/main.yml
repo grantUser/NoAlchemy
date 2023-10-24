@@ -29,16 +29,16 @@ jobs:
       - name: Install pytest
         run: pip install pytest
 
+      - name: Check Test Status
+        if: steps.test.outcome == 'success'
+        run: echo "Tests have passed."
+
       - name: Get Version
         id: get-version
         run: |
           version=$(python -c "import noalchemy; print(noalchemy.__version__)")
           echo "Version $version detected"
           echo "VERSION=$version" >> $GITHUB_ENV
-
-      - name: Check Test Status
-        if: steps.test.outcome == 'success'
-        run: echo "Tests have passed."
 
       - name: Check Production Flag
         id: check-prod
@@ -49,10 +49,11 @@ jobs:
             echo "release-confirmation=true" >> $GITHUB_ENV
           else
             echo "Production flag is set to False. Skipping release confirmation."
+            echo "release-confirmation=false" >> $GITHUB_ENV
           fi
 
       - name: Manual Release Confirmation
-        if: success() && steps.check-prod.outputs.release-confirmation == 'true'
+        if: success() && env.release-confirmation == 'true'
         uses: trstringer/manual-approval@v1
         timeout-minutes: 2
         with:
