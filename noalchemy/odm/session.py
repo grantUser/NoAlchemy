@@ -1,19 +1,18 @@
+import inspect
 import threading
 
 from bson import ObjectId
 
+from .. import DeleteOne, InsertOne, UpdateOne
 from ..exc import *
 from ..types import Key
 from .models import models
-
-from .. import InsertOne, UpdateOne, DeleteOne
 
 
 class Transaction:
     def __init__(self, bind=None) -> None:
         self.__bind = bind
         self.bulk_operations = {}
-
 
     def _get_bulk_operations(self, collection_name):
         if collection_name not in self.bulk_operations:
@@ -60,19 +59,31 @@ class Transaction:
         collection = object.__collection_name__
         bulk_ops = self._get_bulk_operations(collection)
         document = object.to_dict()
-        
+
         update_existing = None
         for op in bulk_ops:
-            if op.__class__ == UpdateOne and op._filter.get("_id") == document.get("_id"):
+            if op.__class__ == UpdateOne and op._filter.get("_id") == document.get(
+                "_id"
+            ):
                 update_existing = op
                 break
-        
+
         if update_existing:
             update = update_existing._doc
-            update["$set"].update({key: value for key, value in object.items() if key in object.__originals__.keys()})
+            update["$set"].update(
+                {
+                    key: value
+                    for key, value in object.items()
+                    if key in object.__originals__.keys()
+                }
+            )
         else:
             update = {
-                "$set": {key: value for key, value in object.items() if key in object.__originals__.keys()}
+                "$set": {
+                    key: value
+                    for key, value in object.items()
+                    if key in object.__originals__.keys()
+                }
             }
             bulk_ops.append(UpdateOne({"_id": document["_id"]}, update))
 
@@ -97,7 +108,10 @@ class Transaction:
                     collection.delete_one(operation._doc)
                 elif operation.__class__ == UpdateOne:
                     collection = self.__bind.database[collection_name]
-                    collection.update_one(operation.filter, {"$set": {key: None for key in operation.update["$set"]}})
+                    collection.update_one(
+                        operation.filter,
+                        {"$set": {key: None for key in operation.update["$set"]}},
+                    )
         self.bulk_operations = {}
 
     def __enter__(self):
@@ -139,7 +153,7 @@ class Session:
             raise Exception("_id incorrect", object)
 
         if self._transaction:
-            with self._transation as transaction:
+            with self._transaction as transaction:
                 transaction.insert_one(object)
 
     def delete(self, object):
@@ -226,13 +240,15 @@ class Session:
         kwds["bind"] = self.bind
         kwds["Session"] = self
         return self.Query(*args, **kwds)
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         if self.autocommit:
             self.commit()
+
+        self._transaction = Transaction(bind=self.bind)
 
     class Query:
         def __init__(self, *args, **kwds) -> None:
@@ -292,10 +308,26 @@ class Session:
                     return function(self, collection, *args, **kwds)
                 else:
                     raise Exception("Collection not found in the targeted database")
+
             return wrapper
 
         def filter_by(self, **kwargs):
             for key, value in kwargs.items():
+                if annotation := self.object.__annotations__.get(key, False):
+                    if isinstance(annotation, Key):
+                        constructor = annotation.type.__init__
+                        parameters = list(
+                            inspect.signature(constructor).parameters.keys()
+                        )
+                        current_parameter_values = {
+                            param: getattr(annotation.type, param)
+                            for param in parameters
+                        }
+                        new_instance = type(annotation.type)(**current_parameter_values)
+                        new_instance.content = value
+                        self.filter[key] = new_instance.value
+                        continue
+
                 self.filter[key] = value
 
             return self
@@ -311,9 +343,15 @@ class Session:
         @collection_exists_decorator
         def all(self, collection):
             document_list = []
-            documents = collection.find(self.filter, self.projection).skip(self.offset_value).limit(self.limit_value)
+            documents = (
+                collection.find(self.filter, self.projection)
+                .skip(self.offset_value)
+                .limit(self.limit_value)
+            )
             for document in documents:
-                document_list.append(self.object(**document, __from__=1, Session=self.Session))
+                document_list.append(
+                    self.object(**document, __from__=1, Session=self.Session)
+                )
 
             return document_list
 
@@ -348,7 +386,7 @@ class Session:
             if document:
                 return self.object(**document, __from__=1, Session=self.Session)
             raise NoResultFoundException()
-        
+
         @collection_exists_decorator
         def count(self, collection, **kwds):
             return collection.count_documents(self.filter, **kwds)
@@ -400,10 +438,6 @@ class _scoped_session:
     def delete_all(self, objects):
         session = self._get_or_create_session()
         return session.delete_all(objects)
-
-    def update(self, object):
-        session = self._get_or_create_session()
-        return session.update(object)
 
     def commit(self):
         session = self._get_or_create_session()
