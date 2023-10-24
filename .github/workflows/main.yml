@@ -1,0 +1,48 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.10
+
+      - name: Run Tests
+        id: test
+        run: pytest
+
+      - name: Check Test Status
+        if: steps.test.outcome == 'success'
+        run: echo "Tests have passed."
+        
+      - name: Manual Release Confirmation
+        if: success()
+        run: |
+          echo "Release confirmation required. Click 'Approve' to create a new release."
+          echo "::set-output name=release-confirmation::true"
+        id: confirm-release
+        continue-on-error: true
+
+      - name: Create Release
+        if: steps.confirm-release.outputs.release-confirmation == 'true'
+        run: |
+          echo "Creating a new release..."
+          
+          # Obtenez la version depuis l'environnement
+          version=${{ env.VERSION }}
+          
+          # Créez une nouvelle release GitHub
+          curl -X POST "https://api.github.com/repos/USER/REPO/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
