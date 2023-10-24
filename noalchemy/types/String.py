@@ -78,3 +78,24 @@ class String:
             )
 
         return other + self.content
+
+    def __len__(self):
+        return len(self.value)
+
+    def __eq__(self, autre):
+        if isinstance(autre, String):
+            return self.value == autre.value
+
+        if isinstance(autre, str):
+            return self.value == autre
+
+        return False
+
+    def __ne__(self, autre):
+        if isinstance(autre, String):
+            return self.value != autre.value
+
+        if isinstance(autre, str):
+            return self.value != autre
+
+        return True
