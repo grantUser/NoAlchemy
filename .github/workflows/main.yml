@@ -44,10 +44,10 @@ jobs:
       - name: Manual Release Confirmation
         if: success()
         uses: trstringer/manual-approval@v1
+        timeout-minutes: 10
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
           approvers: grantUser
-          timeout-minutes: 10
         id: confirm-release
 
       - name: Create Release
