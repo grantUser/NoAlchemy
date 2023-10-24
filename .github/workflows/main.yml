@@ -23,7 +23,7 @@ jobs:
 
       - name: Run Tests
         id: test
-        run: pytest
+        run: python -m pytest
 
       - name: Check Test Status
         if: steps.test.outcome == 'success'
