@@ -1,11 +1,9 @@
 class Integer:
     MAX_VALUE = 2147483647
 
-    def __init__(self, max_value: int = MAX_VALUE, min_value: int = None):
+    def __init__(self, max_value=MAX_VALUE, min_value=None):
         self.__noalchemy_type__ = True
-
         self._validate_parameters(max_value, min_value)
-
         self.max_value = max_value
         self.min_value = min_value
         self.content = ""
@@ -51,25 +49,67 @@ class Integer:
     def __add__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a Integer object with another integer."
+                "You can only concatenate an Integer object with another integer."
             )
-
         return self.content + other
 
     def __radd__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a Integer object with another integer."
+                "You can only concatenate an Integer object with another integer."
             )
-
         return other + self.content
 
     def __iadd__(self, other):
         if not isinstance(other, int):
             raise TypeError(
-                "You can only concatenate a Integer object with another integer."
+                "You can only concatenate an Integer object with another integer."
             )
-
         self.content += other
-
         return self.content
+
+    def __eq__(self, other):
+        if isinstance(other, Integer):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        return False
+
+    def __ne__(self, other):
+        if isinstance(other, Integer):
+            return self.value != other.value
+        elif isinstance(other, int):
+            return self.value != other
+        return True
+
+    def __lt__(self, other):
+        if isinstance(other, Integer):
+            return self.value < other.value
+        elif isinstance(other, int):
+            return self.value < other
+        else:
+            raise TypeError("Unsupported comparison")
+
+    def __gt__(self, other):
+        if isinstance(other, Integer):
+            return self.value > other.value
+        elif isinstance(other, int):
+            return self.value > other
+        else:
+            raise TypeError("Unsupported comparison")
+
+    def __le__(self, other):
+        if isinstance(other, Integer):
+            return self.value <= other.value
+        elif isinstance(other, int):
+            return self.value <= other
+        else:
+            raise TypeError("Unsupported comparison")
+
+    def __ge__(self, other):
+        if isinstance(other, Integer):
+            return self.value >= other.value
+        elif isinstance(other, int):
+            return self.value >= other
+        else:
+            raise TypeError("Unsupported comparison")
