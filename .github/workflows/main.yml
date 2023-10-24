@@ -45,7 +45,9 @@ jobs:
         if: success()
         uses: trstringer/manual-approval@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: grantUser
+          timeout-minutes: 10
         id: confirm-release
 
       - name: Create Release
