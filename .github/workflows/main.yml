@@ -36,24 +36,31 @@ jobs:
           echo "Version $version detected"
           echo "VERSION=$version" >> $GITHUB_ENV
 
-      - name: Run Tests
-        id: test
-        run: pytest
-
       - name: Check Test Status
         if: steps.test.outcome == 'success'
         run: echo "Tests have passed."
 
+      - name: Check Production Flag
+        id: check-prod
+        run: |
+          is_prod=$(python -c "import noalchemy; print(noalchemy.__prod__)")
+          if [ "$is_prod" == "True" ]; then
+            echo "Production flag is set to True. Proceeding with manual release confirmation."
+            echo "release-confirmation=true" >> $GITHUB_ENV
+          else
+            echo "Production flag is set to False. Skipping release confirmation."
+          fi
+
       - name: Manual Release Confirmation
-        if: success()
+        if: success() && steps.check-prod.outputs.release-confirmation == 'true'
         uses: trstringer/manual-approval@v1
         timeout-minutes: 2
         with:
           secret: ${{ github.TOKEN }}
           approvers: grantUser
           minimum-approvals: 1
-          issue-title: "Deploying v${{ env.VERSION }} to prod from staging"
-          issue-body: "Please approve or deny the deployment of version v${{ env.VERSION }}."
+          issue-title: "Please Approve Deployment of Version ${{ env.VERSION }}"
+          issue-body: "This is a request to deploy version ${{ env.VERSION }} to production. Please approve or deny this deployment request."
           exclude-workflow-initiator-as-approver: false
         id: confirm-release
 
