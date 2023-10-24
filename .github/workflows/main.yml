@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main  # ou la branche que vous préférez
+      - main
 
 jobs:
   build:
@@ -18,12 +18,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: 16  # Utilisez Node.js 16
+          node-version: 16
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.8'
+          python-version: 3.8
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
@@ -34,8 +34,9 @@ jobs:
       - name: Get Version
         id: get-version
         run: |
-          python -c "import noalchemy; print(noalchemy.__version__)" > version.txt
-          echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
+          version=$(python -c "import noalchemy; print(noalchemy.__version__)")
+          echo "Version $version detected"
+          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Run Tests
         id: test
@@ -57,11 +58,7 @@ jobs:
         if: env.release-confirmation == 'true'
         run: |
           echo "Creating a new release..."
-          
-          # Obtenez la version depuis l'environnement
           version=${{ env.VERSION }}
-          
-          # Créez une nouvelle release GitHub
           curl -X POST "https://api.github.com/repos/USER/REPO/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
