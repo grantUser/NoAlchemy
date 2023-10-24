@@ -419,34 +419,6 @@ class _scoped_session:
         session.autocommit = autocommit
         return session
 
-    def query(self, *args, collection=None, object=None):
-        session = self._get_or_create_session()
-        return session.query(*args, collection=collection, object=object)
-
-    def add(self, object):
-        session = self._get_or_create_session()
-        return session.add(object)
-
-    def delete(self, object):
-        session = self._get_or_create_session()
-        return session.delete(object)
-
-    def add_all(self, objects):
-        session = self._get_or_create_session()
-        return session.add_all(objects)
-
-    def delete_all(self, objects):
-        session = self._get_or_create_session()
-        return session.delete_all(objects)
-
-    def commit(self):
-        session = self._get_or_create_session()
-        return session.commit()
-
-    def rollback(self):
-        session = self._get_or_create_session()
-        return session.rollback()
-
     def __enter__(self):
         session = self._get_or_create_session()
         return session
