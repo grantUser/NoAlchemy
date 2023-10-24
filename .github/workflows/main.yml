@@ -12,6 +12,15 @@ jobs:
     permissions:
       issues: write
 
+    strategy:
+      matrix:
+        python-version:
+          - '3.6'
+          - '3.7'
+          - '3.8'
+          - '3.9'
+          - '3.10'
+
     steps:
       - name: Check Out Code
         uses: actions/checkout@v2
@@ -21,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: ${{ matrix.python-version }}
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
@@ -29,47 +38,9 @@ jobs:
       - name: Install pytest
         run: pip install pytest
 
+      - name: Run Tests
+        run: pytest
+
       - name: Check Test Status
         if: steps.test.outcome == 'success'
         run: echo "Tests have passed."
-
-      - name: Get Version
-        id: get-version
-        run: |
-          version=$(python -c "import noalchemy; print(noalchemy.__version__)")
-          echo "Version $version detected"
-          echo "VERSION=$version" >> $GITHUB_ENV
-
-      - name: Check Production Flag
-        id: check-prod
-        run: |
-          is_prod=$(python -c "import noalchemy; print(noalchemy.__prod__)")
-          if [ "$is_prod" == "True" ]; then
-            echo "Production flag is set to True. Proceeding with manual release confirmation."
-            echo "release-confirmation=true" >> $GITHUB_ENV
-          else
-            echo "Production flag is set to False. Skipping release confirmation."
-            echo "release-confirmation=false" >> $GITHUB_ENV
-          fi
-
-      - name: Manual Release Confirmation
-        if: success() && env.release-confirmation == 'true'
-        uses: trstringer/manual-approval@v1
-        timeout-minutes: 2
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: grantUser
-          minimum-approvals: 1
-          issue-title: "Please Approve Deployment of Version ${{ env.VERSION }}"
-          issue-body: "This is a request to deploy version ${{ env.VERSION }} to production. Please approve or deny this deployment request."
-          exclude-workflow-initiator-as-approver: false
-        id: confirm-release
-
-      - name: Create Release
-        if: steps.confirm-release.outputs.approved == 'true'
-        run: |
-          echo "Creating a new release..."
-          version=${{ env.VERSION }}
-          curl -X POST "https://api.github.com/repos/USER/REPO/releases" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -d "{\"tag_name\": \"$version\", \"name\": \"$version\"}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

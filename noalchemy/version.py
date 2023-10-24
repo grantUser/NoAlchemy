@@ -11,4 +11,3 @@ def get_version_string() -> str:
 
 __version__: str = get_version_string()
 version = __version__
-__prod__ = True
