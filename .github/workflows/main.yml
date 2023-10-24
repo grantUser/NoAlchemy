@@ -47,7 +47,7 @@ jobs:
         timeout-minutes: 10
         with:
           secret: ${{ secrets.GITHUB_TOKEN }}
-          approvers: grantUser
+          exclude-workflow-initiator-as-approver: false
         id: confirm-release
 
       - name: Create Release
