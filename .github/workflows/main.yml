@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - main  # ou la branche que vous préférez
 
 jobs:
   build:
@@ -12,18 +12,34 @@ jobs:
     steps:
       - name: Check Out Code
         uses: actions/checkout@v2
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16  # Utilisez Node.js 16
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
+          python-version: '3.8'
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Get Version
+        id: get-version
+        run: |
+          python -c "import noalchemy; print(noalchemy.__version__)" > version.txt
+          echo "VERSION=$(cat version.txt)" >> $GITHUB_ENV
+
       - name: Run Tests
         id: test
-        run: python -m pytest
+        run: pytest
 
       - name: Check Test Status
         if: steps.test.outcome == 'success'
@@ -33,12 +49,12 @@ jobs:
         if: success()
         run: |
           echo "Release confirmation required. Click 'Approve' to create a new release."
-          echo "::set-output name=release-confirmation::true"
+          echo "release-confirmation=true" >> $GITHUB_ENV
         id: confirm-release
         continue-on-error: true
 
       - name: Create Release
-        if: steps.confirm-release.outputs.release-confirmation == 'true'
+        if: env.release-confirmation == 'true'
         run: |
           echo "Creating a new release..."
           
