@@ -1,3 +1,7 @@
+![NoAlchemy](https://repository-images.githubusercontent.com/701033002/8ab1a453-a285-4d0c-a002-ba0e23e0be2c)
+
+![Tests Pipeline](https://github.com/grantUser/NoAlchemy/actions/workflows/tests.yml/badge.svg)
+
 # NoAlchemy - A MongoDB Object-Document Mapper
 
 NoAlchemy is a Python Object-Document Mapping (ODM) library for MongoDB. It simplifies the interaction between your Python application and MongoDB by providing a user-friendly way to work with documents and collections.
