@@ -5,6 +5,7 @@ from bson import ObjectId
 
 from ..types import Key
 from .models import models
+from .relationship import relationship
 
 
 class declarative_base:
@@ -29,7 +30,7 @@ class Document:
             models.add({cls.__name__: cls})
 
         for key, type in cls.__annotations__.items():
-            if isinstance(type, Key):
+            if isinstance(type, Key) or isinstance(type, relationship):
                 type.__collection_name__ = cls.__collection_name__
                 type.__key__ = key
                 type.__object__ = cls
@@ -60,6 +61,12 @@ class Document:
             self.__dict__["_id"] = ObjectId()
 
         for key, instance in self.__class__.__annotations__.items():
+            if isinstance(instance, relationship) and key in kwds:
+                if relation_class := models.instances.get(instance.target):
+                    relation_content = kwds.get(key, None)
+                    self.__dict__[key] = relation_class(**relation_content)
+                    continue
+
             if isinstance(instance, Key) and key not in kwds:
                 if instance.required:
                     raise Exception(f"{key} is required.")
@@ -121,35 +128,34 @@ class Document:
             exclude = []
 
         readable_dict = {
-            key: value
+            key: self._get_attribute_value(value, exclude)
             for key, value in self.__dict__.items()
             if key not in whitelist_key and key not in exclude
         }
 
-        for _dict_key, _dict_class in readable_dict.items():
-            if (
-                hasattr(_dict_class, "__noalchemy_type__")
-                and _dict_class.__noalchemy_type__
-            ):
-                readable_dict[_dict_key] = _dict_class.value
-
         return readable_dict
+
+    def _get_attribute_value(self, attribute, exclude):
+        if hasattr(attribute, 'to_dict') and callable(attribute.to_dict):
+            return attribute.to_dict(exclude)
+        elif isinstance(attribute, list):
+            return [self._get_attribute_value(item, exclude) for item in attribute]
+        elif isinstance(attribute, dict):
+            return {k: self._get_attribute_value(v, exclude) for k, v in attribute.items()}
+        elif hasattr(attribute, "__noalchemy_type__") and attribute.__noalchemy_type__:
+            return attribute.value
+        else:
+            return attribute
+
 
     def items(self, exclude: list = None):
         if not exclude:
             exclude = []
 
         readable_dict = {
-            key: value
+            key: self._get_attribute_value(value, exclude)
             for key, value in self.__dict__.items()
             if key not in whitelist_key and key not in exclude
         }
-
-        for _dict_key, _dict_class in readable_dict.items():
-            if (
-                hasattr(_dict_class, "__noalchemy_type__")
-                and _dict_class.__noalchemy_type__
-            ):
-                readable_dict[_dict_key] = _dict_class.value
 
         return readable_dict.items()

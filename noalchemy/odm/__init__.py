@@ -1,6 +1,7 @@
 from typing import Any
 
 from .document import declarative_base
+from .relationship import relationship
 from .session import _scoped_session, _sessionmaker
 
 
