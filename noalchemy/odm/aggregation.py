@@ -15,25 +15,19 @@ class Aggregation:
 
     def build_pipeline(self, pipes: list):
         for pipe in pipes:
-            match pipe:
-                case "$match":
-                    if self.query.filter:
-                        self.pipeline.extend([{"$match": self.query.filter}])
+            if pipe == "$match":
+                if self.query.filter:
+                    self.pipeline.extend([{"$match": self.query.filter}])
+            elif pipe == "$project":
+                if self.query.projection:
+                    self.pipeline.extend([{"$project": self.query.projection}])
+            elif pipe == "$skip":
+                if self.query.offset_value:
+                    self.pipeline.extend([{"$skip": self.query.offset_value}])
+            elif pipe == "$limit":
+                if self.query.limit_value:
+                    self.pipeline.extend([{"$limit": self.query.limit_value}])
 
-                case "$project":
-                    if self.query.projection:
-                        self.pipeline.extend([{"$project": self.query.projection}])
-
-                case "$skip":
-                    if self.query.offset_value:
-                        self.pipeline.extend([{"$skip": self.query.offset_value}])
-
-                case "$limit":
-                    if self.query.limit_value:
-                        self.pipeline.extend([{"$limit": self.query.limit_value}])
-
-                case _:
-                    continue
 
     def all(self, collection):
         self.build_pipeline(["$match", "$project", "$skip", "$limit"])
