@@ -1,6 +1,8 @@
 ![NoAlchemy](https://repository-images.githubusercontent.com/701033002/8ab1a453-a285-4d0c-a002-ba0e23e0be2c)
 
 ![Tests Pipeline](https://github.com/grantUser/NoAlchemy/actions/workflows/tests.yml/badge.svg)
+![PyVersions](https://img.shields.io/pypi/pyversions/NoAlchemy)
+![PypiVersion](https://img.shields.io/pypi/v/NoAlchemy)
 
 # NoAlchemy - A MongoDB Object-Document Mapper
 
