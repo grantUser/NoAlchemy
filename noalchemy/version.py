@@ -1,6 +1,6 @@
 from typing import Tuple, Union
 
-version_tuple: Tuple[Union[int, str], ...] = (0, 1, 3)
+version_tuple: Tuple[Union[int, str], ...] = (0, 2, 0)
 
 
 def get_version_string() -> str:
