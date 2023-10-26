@@ -129,7 +129,6 @@ class Query:
                                     "as": _as,
                                 }
                             },
-                            {"$unwind": f"${_as}"},
                         ]
                     )
 

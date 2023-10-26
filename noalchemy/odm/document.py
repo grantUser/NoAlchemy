@@ -64,7 +64,17 @@ class Document:
             if isinstance(instance, relationship) and key in kwds:
                 if relation_class := models.instances.get(instance.target):
                     relation_content = kwds.get(key, None)
-                    self.__dict__[key] = relation_class(**relation_content)
+                    
+                    if isinstance(relation_content, dict):
+                        self.__dict__[key] = relation_class(**relation_content)
+
+                    if isinstance(relation_content, list):
+                        if not self.__dict__.get(key):
+                            self.__dict__[key] = []
+                        
+                        for content in relation_content:
+                            self.__dict__[key].append(relation_class(**content))
+
                     continue
 
             if isinstance(instance, Key) and key not in kwds:
