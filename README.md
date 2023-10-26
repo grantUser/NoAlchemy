@@ -2,7 +2,7 @@
 
 ![Tests Pipeline](https://github.com/grantUser/NoAlchemy/actions/workflows/tests.yml/badge.svg)
 ![PyVersions](https://img.shields.io/pypi/pyversions/NoAlchemy)
-![PypiVersion](https://img.shields.io/pypi/v/NoAlchemy)
+[![PypiVersion](https://img.shields.io/pypi/v/NoAlchemy)](https://pypi.org/project/NoAlchemy/)
 
 # NoAlchemy - A MongoDB Object-Document Mapper
 
