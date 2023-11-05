@@ -1,0 +1,4 @@
+mongomock==4.1.2
+pymongo==4.5.0
+pytz==2023.3.post1
+setuptools==57.4.0
